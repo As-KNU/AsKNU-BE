@@ -23,15 +23,15 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
-# CORS 설정 (프론트엔드 도메인에 맞게 수정)
+# CORS 설정
+origins = [
+    "https://as-knu-fe.vercel.app",  # 프론트 정식 URL
+    "http://localhost:5173",  # 개발용
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",  # 로컬 개발
-        "http://localhost:5173",  # Vite 개발 서버
-        "https://your-frontend-domain.com",  # 프로덕션 프론트엔드
-        # 필요한 도메인 추가
-    ],
+    allow_origins=origins,  # "*" 하면 preflight 막힘 → 반드시 리스트로!
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
