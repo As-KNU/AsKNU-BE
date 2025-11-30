@@ -4,7 +4,6 @@
 
 [![Python](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.104+-green.svg)](https://fastapi.tiangolo.com/)
-[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 ## 📌 프로젝트 소개
 
@@ -180,43 +179,8 @@ CREATE TABLE notices (
 );
 ```
 
-## 🤝 기여 가이드
 
-1. Fork the Project
-2. Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the Branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
-
-## 📝 변경 이력
-
-### v0.2.0 (2025-11-30)
-- ✨ Gemini → Upstage Solar Pro 마이그레이션
-- 🔧 날짜 검증 로직 추가
-- 🔍 검색 기능 개선
-- 📚 배포 가이드 추가
-- 🌐 CORS 설정 추가
-
-### v0.1.0 (Initial Release)
-- 🎉 초기 공지사항 챗봇 기능 구현
-- 🔍 크롤링 및 검색 기능
-- 🤖 Gemini API 통합
-
-## 📄 라이선스
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## 👥 팀
 
-- **Backend Team**: AsKNU 백엔드 개발팀
-- **Contact**: [이메일 주소]
-
-## 🙏 감사의 말
-
-- 경북대학교 컴퓨터학부
-- Upstage Solar API
-- FastAPI Community
-
----
-
-**Made with ❤️ by AsKNU Team**
+- **Backend Team**: 박민혁, 이정민
