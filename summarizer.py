@@ -1,12 +1,17 @@
 # summarizer.py
 
 import os, re, textwrap
-import google.generativeai as genai
-from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
+from openai import OpenAI
+from tenacity import (
+    retry,
+    stop_after_attempt,
+    wait_exponential,
+    retry_if_exception_type,
+)
 import anyio
 
-API_KEY = os.getenv("GEMINI_API_KEY")
-MODEL_NAME = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
+API_KEY = os.getenv("UPSTAGE_API_KEY")
+MODEL_NAME = os.getenv("UPSTAGE_MODEL", "solar-pro")
 
 QA_TMPL = """\
 당신은 대학 학부 행정 안내 챗봇입니다. 아래 '관련 자료'를 참고해서 사용자의 질문에 짧고 정확하게 한국어로 답하세요.
@@ -21,27 +26,44 @@ QA_TMPL = """\
 {contexts}
 """
 
+
 def _format_contexts(rows):
     blocks = []
     for r in rows:
-        blocks.append(f"- 제목: {r['title']}\n  요약: {r.get('summary') or ''}\n  링크: {r['url']}")
+        blocks.append(
+            f"- 제목: {r['title']}\n  요약: {r.get('summary') or ''}\n  링크: {r['url']}"
+        )
     return "\n".join(blocks)
 
+
 def _answer_sync(question: str, rows: list[dict]) -> str:
-    model = _ensure_client()
+    client = _ensure_client()
     prompt = QA_TMPL.format(
         question=question.strip(),
         contexts=_format_contexts(rows)[:12000],
     )
-    resp = model.generate_content(prompt)
-    return (resp.text or "").strip()
+    response = client.chat.completions.create(
+        model=MODEL_NAME,
+        messages=[
+            {
+                "role": "system",
+                "content": "당신은 대학 학부 행정 안내 전문 챗봇입니다.",
+            },
+            {"role": "user", "content": prompt},
+        ],
+        temperature=0.3,
+    )
+    return response.choices[0].message.content.strip()
+
 
 async def answer_with_gemini(question: str, rows: list[dict]) -> str:
+    """Solar Pro로 질문 답변 생성 (함수명은 호환성을 위해 유지)"""
     try:
         return await anyio.to_thread.run_sync(_answer_sync, question, rows)
     except Exception:
         bullets = "\n".join([f"- {r['title']} ({r['url']})" for r in rows])
         return f"아래 공지가 도움이 될 수 있어요:\n{bullets}"
+
 
 def _clean_for_summary(text: str) -> str:
     text = re.sub(r"본문[\s\S]*?댓글목록", "", text)
@@ -52,11 +74,12 @@ def _clean_for_summary(text: str) -> str:
     text = re.sub(r"\s{2,}", " ", text)
     return text.strip()
 
+
 def _ensure_client():
     if not API_KEY:
-        raise RuntimeError("GEMINI_API_KEY not set")
-    genai.configure(api_key=API_KEY)
-    return genai.GenerativeModel(MODEL_NAME)
+        raise RuntimeError("UPSTAGE_API_KEY not set")
+    return OpenAI(api_key=API_KEY, base_url="https://api.upstage.ai/v1/solar")
+
 
 PROMPT_TMPL = """\
 다음은 대학 공지사항 원문입니다. 한국어로 간결한 요약을 만들어 주세요.
@@ -73,6 +96,7 @@ PROMPT_TMPL = """\
 {text}
 """
 
+
 @retry(
     reraise=True,
     stop=stop_after_attempt(3),
@@ -80,20 +104,32 @@ PROMPT_TMPL = """\
     retry=retry_if_exception_type(Exception),
 )
 def _summarize_sync(title: str, content: str) -> str:
-    model = _ensure_client()
+    client = _ensure_client()
     cleaned = _clean_for_summary(content)
     if not cleaned:
         cleaned = content[:8000]
     prompt = PROMPT_TMPL.format(title=title.strip(), text=cleaned[:12000])
-    resp = model.generate_content(prompt)
-    text = (resp.text or "").strip()
-    
+
+    response = client.chat.completions.create(
+        model=MODEL_NAME,
+        messages=[
+            {
+                "role": "system",
+                "content": "당신은 대학 공지사항을 간결하게 요약하는 전문가입니다.",
+            },
+            {"role": "user", "content": prompt},
+        ],
+        temperature=0.3,
+    )
+    text = response.choices[0].message.content.strip()
+
     text = _clean_for_summary(text)
-    
+
     if len(text) < 20:
         snippet = cleaned[:300] + ("…" if len(cleaned) > 300 else "")
         text = snippet
     return text
+
 
 async def summarize_notice(title: str, content: str) -> str:
     """

@@ -16,13 +16,27 @@ HEADERS = {
 }
 
 NAV_SELECTORS = [
-    "#bo_v_nb", ".bo_v_nb", ".prev_next", ".btn_nextprv",
-    ".bo_v_info", "#bo_v_info", ".bo_v_category",
-    "#bo_vc", ".bo_vc", ".cmt", "#comment", ".bo_vc_w",
+    "#bo_v_nb",
+    ".bo_v_nb",
+    ".prev_next",
+    ".btn_nextprv",
+    ".bo_v_info",
+    "#bo_v_info",
+    ".bo_v_category",
+    "#bo_vc",
+    ".bo_vc",
+    ".cmt",
+    "#comment",
+    ".bo_vc_w",
 ]
 CONTENT_SELECTORS = [
-    "#bo_v_con", ".bo_v_con", "#bo_v_atc", ".bo_v_atc",
-    ".view_content", ".bo_view", "article#bo_v",
+    "#bo_v_con",
+    ".bo_v_con",
+    "#bo_v_atc",
+    ".bo_v_atc",
+    ".view_content",
+    ".bo_view",
+    "article#bo_v",
 ]
 
 
@@ -33,7 +47,9 @@ def checksum(text: str) -> str:
 
 async def fetch_html(url: str) -> str:
     """URL GET(리다이렉트 허용)."""
-    async with httpx.AsyncClient(timeout=20, headers=HEADERS, follow_redirects=True) as client:
+    async with httpx.AsyncClient(
+        timeout=20, headers=HEADERS, follow_redirects=True
+    ) as client:
         r = await client.get(url)
         r.raise_for_status()
         return r.text
@@ -77,7 +93,8 @@ def parse_list(html: str):
 
     if not links:  # 백업 경로
         for a in soup.find_all("a", href=True):
-            href = a["href"]; title = a.get_text(strip=True)
+            href = a["href"]
+            title = a.get_text(strip=True)
             if "wr_id=" in href and title:
                 links.append({"title": title, "url": urljoin(LIST_URL, href)})
 
@@ -90,20 +107,28 @@ def _with_page(url: str, page: int) -> str:
     u = urlparse(url)
     qs = parse_qs(u.query, keep_blank_values=True)
     qs["page"] = [str(page)]
-    return urlunparse((u.scheme, u.netloc, u.path, u.params, urlencode(qs, doseq=True), u.fragment))
+    return urlunparse(
+        (u.scheme, u.netloc, u.path, u.params, urlencode(qs, doseq=True), u.fragment)
+    )
 
 
 def parse_last_page(html: str) -> int | None:
     """페이지네이션의 최대 페이지 추정."""
     soup = BeautifulSoup(html, "lxml")
     for sel in [".pg_page", ".pagination", ".pg", ".pg_wrap", ".page"]:
-        nums = [int(a.get_text(strip=True)) for a in soup.select(f"{sel} a") if a.get_text(strip=True).isdigit()]
+        nums = [
+            int(a.get_text(strip=True))
+            for a in soup.select(f"{sel} a")
+            if a.get_text(strip=True).isdigit()
+        ]
         if nums:
             return max(nums)
     return None
 
 
-async def collect_all_items(base_url: str, max_pages: int | None = None, delay_sec: float = 0.4):
+async def collect_all_items(
+    base_url: str, max_pages: int | None = None, delay_sec: float = 0.4
+):
     """전체/일부 페이지 순회하여 링크 수집."""
     items_map = {}
     first_html = await fetch_html(base_url)
@@ -111,7 +136,9 @@ async def collect_all_items(base_url: str, max_pages: int | None = None, delay_s
         items_map[it["url"]] = it
 
     last_page = parse_last_page(first_html)
-    target_last = (1 + max(0, (max_pages or 1) - 1)) if max_pages else (last_page or 999_999)
+    target_last = (
+        (1 + max(0, (max_pages or 1) - 1)) if max_pages else (last_page or 999_999)
+    )
 
     page = 2
     while page <= target_last:
@@ -144,7 +171,12 @@ def parse_detail(html: str, return_meta: bool = False):
             content_el, used_selector = el, sel
             break
     if not content_el:
-        content_el = soup.select_one("main") or soup.select_one("article") or soup.select_one("section") or soup
+        content_el = (
+            soup.select_one("main")
+            or soup.select_one("article")
+            or soup.select_one("section")
+            or soup
+        )
         used_selector = used_selector or "(fallback)"
 
     for bad_sel in NAV_SELECTORS:
@@ -155,12 +187,20 @@ def parse_detail(html: str, return_meta: bool = False):
         if sib.name in ("div", "ul"):
             sid = sib.get("id", "")
             cls = " ".join(sib.get("class", []))
-            if any(k in sid for k in ["bo_v_nb", "bo_vc", "comment"]) or any(k in cls for k in ["bo_v_nb", "prev_next", "btn_nextprv", "bo_vc"]):
+            if any(k in sid for k in ["bo_v_nb", "bo_vc", "comment"]) or any(
+                k in cls for k in ["bo_v_nb", "prev_next", "btn_nextprv", "bo_vc"]
+            ):
                 sib.decompose()
 
     raw_text = content_el.get_text("\n", strip=True)
-    lines = [ln for ln in raw_text.splitlines() if not any(b in ln for b in ["이전글", "다음글", "댓글목록", "페이지 정보"])]
-    text = _normalize_spaces(_strip_between_markers("\n".join(lines), "본문", "댓글목록"))
+    lines = [
+        ln
+        for ln in raw_text.splitlines()
+        if not any(b in ln for b in ["이전글", "다음글", "댓글목록", "페이지 정보"])
+    ]
+    text = _normalize_spaces(
+        _strip_between_markers("\n".join(lines), "본문", "댓글목록")
+    )
     if len(text) < 80 and len(raw_text) > len(text):
         text = _normalize_spaces(raw_text)
 
@@ -171,7 +211,20 @@ def parse_detail(html: str, return_meta: bool = False):
         y, mo, d = map(int, m.groups())
         try:
             posted_at = dt.datetime(y, mo, d)
+
+            # 날짜 검증: 미래 날짜(1년 초과) 또는 너무 오래된 날짜(2010년 이전) 필터링
+            current_year = dt.datetime.now().year
+            if posted_at.year > current_year + 1:
+                # 미래 날짜는 현재 연도로 보정
+                posted_at = posted_at.replace(year=current_year)
+            elif posted_at.year < 2010:
+                # 너무 오래된 날짜는 None으로
+                posted_at = None
         except:
             posted_at = None
 
-    return (text, posted_at, {"selector": used_selector}) if return_meta else (text, posted_at)
+    return (
+        (text, posted_at, {"selector": used_selector})
+        if return_meta
+        else (text, posted_at)
+    )
