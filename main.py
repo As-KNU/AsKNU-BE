@@ -5,6 +5,7 @@ load_dotenv()
 import os
 import asyncio
 from fastapi import FastAPI, Query, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from crawler import fetch_html, parse_detail, checksum, collect_all_items
@@ -12,7 +13,28 @@ from db import upsert_notice, find_by_query, get_conn
 from summarizer import summarize_notice, answer_with_gemini
 
 BASE_BOARD = os.getenv("BASE_BOARD")
-app = FastAPI(title="AsKNU Backend", version="0.1.0")
+
+app = FastAPI(
+    title="AsKNU Backend",
+    version="0.2.0",
+    description="경북대학교 컴퓨터학부 공지사항 챗봇 API",
+    docs_url="/docs",
+    redoc_url="/redoc"
+)
+
+# CORS 설정 (프론트엔드 도메인에 맞게 수정)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:3000",  # 로컬 개발
+        "http://localhost:5173",  # Vite 개발 서버
+        "https://your-frontend-domain.com",  # 프로덕션 프론트엔드
+        # 필요한 도메인 추가
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 class ChatRequest(BaseModel):
